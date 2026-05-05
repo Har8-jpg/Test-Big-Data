@@ -1,16 +1,12 @@
 import os
 import sys
 
-# -------------------------------------------------
-# IMPORTANT FIX FOR PYSPARK + STREAMLIT
 # Make sure Spark uses the same Python environment
-# -------------------------------------------------
 os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import VectorAssembler, StandardScaler
@@ -59,7 +55,7 @@ uploaded_file = st.file_uploader("hack_data.csv", type=["csv"])
 if uploaded_file is not None:
 
     try:
-        # Read CSV using pandas first
+        # Read CSV using pandas
         pandas_df = pd.read_csv(uploaded_file)
 
         st.subheader("1. Dataset Preview")
@@ -114,8 +110,6 @@ if uploaded_file is not None:
         # Step 5: Convert cleaned pandas dataframe to Spark dataframe
         # -------------------------------------------------
         df = spark.createDataFrame(cleaned_pandas_df)
-
-        # Reduce partitions to avoid Python worker crash on local machine
         df = df.repartition(1)
 
 
@@ -199,7 +193,7 @@ if uploaded_file is not None:
 
 
         # -------------------------------------------------
-        # Step 11: Convert clustering result to pandas for display
+        # Step 11: Convert result to pandas for display
         # -------------------------------------------------
         result_df = clustered_df.select(*numeric_cols, "cluster").toPandas()
 
@@ -213,14 +207,15 @@ if uploaded_file is not None:
         st.subheader("13. Cluster Distribution")
 
         cluster_count = result_df["cluster"].value_counts().sort_index()
-        st.write(cluster_count)
+        cluster_count_df = cluster_count.reset_index()
+        cluster_count_df.columns = ["Cluster", "Number of Sessions"]
 
-        fig, ax = plt.subplots()
-        cluster_count.plot(kind="bar", ax=ax)
-        ax.set_xlabel("Cluster")
-        ax.set_ylabel("Number of Sessions")
-        ax.set_title("Number of Sessions in Each Cluster")
-        st.pyplot(fig)
+        st.dataframe(cluster_count_df)
+
+        # Streamlit built-in bar chart, no matplotlib needed
+        st.bar_chart(
+            cluster_count_df.set_index("Cluster")
+        )
 
 
         # -------------------------------------------------
